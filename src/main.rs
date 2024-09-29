@@ -7,6 +7,7 @@ use physics::*;
 
 const NO_SLIDE: u8 = 1;
 const GROUND_LEVEL: u8 = 2;
+const DEADLY: u8 = 4;
 
 struct Platform {
     solid: Solid,
@@ -221,11 +222,20 @@ async fn main() {
             vec2(128.0, 32.0),
             NO_SLIDE,
         ),
+        Platform::new(&mut world, vec2(-732.0, *level), vec2(32.0, 384.0), 0),
         Platform::new(
             &mut world,
-            vec2(-732.0, *level),
-            vec2(32.0, 192.0),
-            NO_SLIDE,
+            vec2(-792.0, down(level, 368.0)),
+            vec2(64.0, 16.0),
+            DEADLY,
+        ),
+        Platform::new(&mut world, vec2(-700.0, *level), vec2(64.0, 16.0), DEADLY),
+        Platform::new(&mut world, vec2(-968.0, *level), vec2(32.0, 384.0), 0),
+        Platform::new(
+            &mut world,
+            vec2(-968.0, down(level, 600.0)),
+            vec2(128.0, 32.0),
+            0,
         ),
         // DUMMY
         Platform::new(
@@ -257,11 +267,11 @@ async fn main() {
         while delta > 0.9 / 60.0 {
             delta -= 1.0 / 60.0;
             world.move_h(actor, dx);
-            let on_solid = world.move_v(actor, dy).is_some();
+            let floor = world.move_v(actor, dy);
             pos = world.actor_pos(actor);
             let mut control = 0.5;
-            if on_solid {
-                if dy > 8.0 {
+            if let Some(floor) = floor {
+                if dy > 8.0 || world.has_flag(floor, DEADLY) {
                     dx = 0.0;
                     dy = 0.0;
                     world.set_actor_pos(actor, start_pos);
@@ -278,7 +288,8 @@ async fn main() {
                 dy = 0.0;
                 control = 1.0;
             }
-            let wall = (!on_solid)
+            let wall = floor
+                .is_none()
                 .then_some(
                     world
                         .collide_solids(pos + vec2(0.0, 0.05), vec2(32.0, 32.0 - 0.1))
@@ -372,7 +383,9 @@ async fn main() {
                 dimension,
                 flags,
             } = world.solid_collider(*solid);
-            let tl = if flags & NO_SLIDE != 0 {
+            let tl = if flags & DEADLY != 0 {
+                vec2(48.0, 144.0)
+            } else if flags & NO_SLIDE != 0 {
                 vec2(240.0, 80.0)
             } else {
                 vec2(240.0, 144.0)
@@ -380,7 +393,7 @@ async fn main() {
             let rows = (dimension.y / 16.0) as i32;
             let cols = (dimension.x / 16.0) as i32;
             for r in 0..rows {
-                let dy = if r == 0 {
+                let dy = if r == 0 || flags & DEADLY != 0 {
                     0.0
                 } else if r == rows - 1 {
                     32.0
@@ -388,7 +401,7 @@ async fn main() {
                     16.0
                 };
                 for c in 0..cols {
-                    let dx = if c == 0 {
+                    let dx = if c == 0 || flags & DEADLY != 0 {
                         0.0
                     } else if c == cols - 1 {
                         32.0
