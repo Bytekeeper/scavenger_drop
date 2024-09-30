@@ -45,6 +45,10 @@ impl World {
         World::default()
     }
 
+    pub fn actors(&self) -> impl Iterator<Item = (Actor, &Collider)> {
+        self.actors.iter()
+    }
+
     pub fn add_particle(&mut self, position: Vec2, velocity: Vec2) {
         self.particles.insert(Particle {
             position,
@@ -69,11 +73,11 @@ impl World {
             .retain(|_, particle| particle.life_time_steps > 0);
     }
 
-    pub fn add_actor(&mut self, position: Vec2, dimension: Vec2) -> Actor {
+    pub fn add_actor(&mut self, position: Vec2, dimension: Vec2, flags: u8) -> Actor {
         self.actors.insert(Collider {
             position,
             dimension,
-            flags: 0,
+            flags,
         })
     }
 
@@ -93,12 +97,28 @@ impl World {
         })
     }
 
+    pub fn set_solid_pos(&mut self, solid: Solid, position: Vec2) {
+        self.solids[solid].position = position;
+    }
+
     pub fn solid_collider(&self, solid: Solid) -> Collider {
         self.solids[solid]
     }
 
-    pub fn has_flag(&self, solid: Solid, flag: u8) -> bool {
-        self.solids[solid].flags & flag != 0
+    pub fn actor_set_flag(&mut self, actor: Actor, flag: u8) {
+        self.actors[actor].flags |= flag;
+    }
+
+    pub fn actor_unset_flag(&mut self, actor: Actor, flag: u8) {
+        self.actors[actor].flags &= !flag;
+    }
+
+    pub fn actor_has_flag(&self, actor: Actor, flag: u8) -> bool {
+        self.actors[actor].flags & flag == flag
+    }
+
+    pub fn solid_has_flag(&self, solid: Solid, flag: u8) -> bool {
+        self.solids[solid].flags & flag == flag
     }
 
     pub fn solid_pos(&self, solid: Solid) -> Vec2 {
@@ -117,8 +137,8 @@ impl World {
         collider.position += delta;
     }
 
-    pub fn move_v(&mut self, actor: Actor, dy: f32) -> Option<Solid> {
-        let collider = &mut self.actors[actor];
+    pub fn move_v(&mut self, actor: Actor, dy: f32) -> (Option<Solid>, Option<Actor>) {
+        let collider = &self.actors[actor];
         let mut actor_rect = collider.as_rect();
         actor_rect.x += 0.05;
         actor_rect.y += 0.05;
@@ -127,6 +147,18 @@ impl World {
         if dy < 0.0 {
             actor_rect.y += dy;
         }
+        let mut hit_actor = None;
+        for (other, actor_collider) in self.actors.iter() {
+            if other == actor {
+                continue;
+            }
+            let other_actor_rect = actor_collider.as_rect();
+            if other_actor_rect.overlaps(&actor_rect) {
+                hit_actor = Some(other);
+                break;
+            }
+        }
+        let collider = &mut self.actors[actor];
         for (solid, solid_collider) in self.solids.iter_mut() {
             let solid_rect = solid_collider.as_rect();
             if let Some(intersection) = solid_rect.intersect(actor_rect) {
@@ -135,15 +167,15 @@ impl World {
                 } else {
                     collider.position.y = intersection.top();
                 }
-                return Some(solid);
+                return (Some(solid), hit_actor);
             }
         }
         collider.position.y += dy;
-        None
+        (None, hit_actor)
     }
 
-    pub fn move_h(&mut self, actor: Actor, dx: f32) -> Option<Solid> {
-        let collider = &mut self.actors[actor];
+    pub fn move_h(&mut self, actor: Actor, dx: f32) -> (Option<Solid>, Option<Actor>) {
+        let collider = &self.actors[actor];
         let mut actor_rect = collider.as_rect();
         actor_rect.x += 0.05;
         actor_rect.y += 0.05;
@@ -152,19 +184,31 @@ impl World {
         if dx < 0.0 {
             actor_rect.x += dx;
         }
+        let mut hit_actor = None;
+        for (other, actor_collider) in self.actors.iter() {
+            if other == actor {
+                continue;
+            }
+            let other_actor_rect = actor_collider.as_rect();
+            if other_actor_rect.overlaps(&actor_rect) {
+                hit_actor = Some(other);
+                break;
+            }
+        }
+        let collider = &mut self.actors[actor];
         for (solid, solid_collider) in self.solids.iter_mut() {
             let solid_rect = solid_collider.as_rect();
             if let Some(intersection) = solid_rect.intersect(actor_rect) {
-                if dx > 0.0 {
+                if dx > 0.0 && solid_rect.left() > actor_rect.left() {
                     collider.position.x = intersection.x - collider.dimension.x;
-                } else {
+                } else if solid_rect.right() < actor_rect.right() {
                     collider.position.x = intersection.right();
                 }
-                return Some(solid);
+                return (Some(solid), hit_actor);
             }
         }
         collider.position.x += dx;
-        None
+        (None, hit_actor)
     }
 
     pub fn collide_solids(&self, position: Vec2, dimension: Vec2) -> Option<(Solid, Rect)> {
