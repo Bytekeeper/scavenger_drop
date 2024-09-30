@@ -104,6 +104,18 @@ fn window_conf() -> Conf {
 
 #[macroquad::main(window_conf)]
 async fn main() {
+    let snd_wind = load_sound_from_bytes(include_bytes!("../assets/wind_zuni.ogg"))
+        .await
+        .unwrap();
+
+    play_sound(
+        &snd_wind,
+        PlaySoundParams {
+            volume: 0.2,
+            looped: true,
+        },
+    );
+
     let snd_pickup = load_sound_from_bytes(include_bytes!("../assets/pickupCoin.wav"))
         .await
         .unwrap();
@@ -514,7 +526,10 @@ async fn main() {
         delta += get_frame_time();
         while delta > 0.9 / 60.0 {
             delta -= 1.0 / 60.0;
-            let (_, coin_candidate) = world.move_h(player, dx);
+            let (wall_candidate, coin_candidate) = world.move_h(player, dx);
+            if wall_candidate.is_some() {
+                dx = 0.0;
+            }
             if let Some(coin_candidate) = coin_candidate {
                 if world.actor_has_flag(coin_candidate, COIN | NOT_TAKEN) {
                     world.actor_unset_flag(coin_candidate, NOT_TAKEN);
@@ -865,7 +880,7 @@ async fn main() {
             30.0,
             WHITE,
         );
-        draw_text(&format!("Coins: {}", coins), 0.0, 60.0, 30.0, WHITE);
+        draw_text(&format!("Diamonds: {}", coins), 0.0, 60.0, 30.0, WHITE);
         let s = timer / 60;
         let ms = ((timer % 60) as f32 / 60.0 * 1000.0) as i32;
         let m = s / 60;
