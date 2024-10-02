@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+gamepads = { version = "0.1.6", default-features = false }
 macroquad = { version = "0.4.13", features = ["audio"] }
 slotmap = "1.0.7"
 

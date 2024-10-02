@@ -1,5 +1,6 @@
 mod physics;
 
+use gamepads::{Button, Gamepads};
 use macroquad::audio::*;
 use macroquad::prelude::*;
 use macroquad::rand::*;
@@ -43,6 +44,7 @@ enum PlatformMove {
 
 impl Platform {
     fn new(world: &mut World, pos: Vec2, size: Vec2, flags: u8) -> Self {
+        debug_assert_eq!(size.as_ivec2() % 16, IVec2::ZERO);
         let solid = world.add_solid(pos, size, flags);
         Platform {
             solid,
@@ -153,34 +155,46 @@ async fn main() {
     // The "Level"
     let level = &mut 32.0;
     let mut platforms = vec![
-        Platform::new(&mut world, vec2(-50.0, *level), vec2(100.0, 64.0), NO_SLIDE),
+        Platform::new(&mut world, vec2(-50.0, *level), vec2(96.0, 64.0), NO_SLIDE),
         // Possible drop example
         Platform::new(
             &mut world,
             vec2(250.0, down(level, 317.0)),
-            vec2(200.0, 32.0),
-            NO_SLIDE,
-        ),
-        // Death drop example
-        Platform::new(
-            &mut world,
-            vec2(-300.0, down(level, 10.0)),
-            vec2(200.0, 32.0),
+            vec2(192.0, 32.0),
             NO_SLIDE,
         ),
         // Slide example
         Platform::new(
             &mut world,
-            vec2(100.0, down(level, 40.0)),
-            vec2(32.0, 300.0),
+            vec2(80.0, down(level, 40.0)),
+            vec2(32.0, 304.0),
+            0,
+        ),
+        Platform::new(
+            &mut world,
+            vec2(80.0, down(level, 300.0)),
+            vec2(128.0, 32.0),
+            0,
+        ),
+        // Slide wall jump example
+        Platform::new(
+            &mut world,
+            vec2(400.0, down(level, 40.0)),
+            vec2(32.0, 192.0),
+            0,
+        ),
+        Platform::new(
+            &mut world,
+            vec2(100.0, down(level, 300.0)),
+            vec2(192.0, 32.0),
             0,
         ),
         // No slide example
-        Platform::new(&mut world, vec2(550.0, *level), vec2(32.0, 300.0), NO_SLIDE),
+        Platform::new(&mut world, vec2(550.0, *level), vec2(32.0, 304.0), NO_SLIDE),
         Platform::new(
             &mut world,
-            vec2(200.0, down(level, 270.0)),
-            vec2(352.0, 32.0),
+            vec2(232.0, down(level, 268.0)),
+            vec2(320.0, 32.0),
             NO_SLIDE,
         ),
         // Easy steps
@@ -213,7 +227,7 @@ async fn main() {
         Platform::new(
             &mut world,
             vec2(450.0, down(level, 100.0)),
-            vec2(32.0, 200.0),
+            vec2(32.0, 192.0),
             0,
         ),
         Platform::new(
@@ -232,7 +246,7 @@ async fn main() {
         Platform::new(
             &mut world,
             vec2(200.0, down(level, 200.0)),
-            vec2(32.0, 600.0),
+            vec2(32.0, 608.0),
             0,
         ),
         Platform::new(
@@ -244,10 +258,10 @@ async fn main() {
         Platform::new(
             &mut world,
             vec2(-50.0, down(level, 500.0)),
-            vec2(192.0, 28.0),
+            vec2(192.0, 32.0),
             0,
         ),
-        Platform::new(&mut world, vec2(142.0, *level), vec2(64.0, 28.0), NO_SLIDE)
+        Platform::new(&mut world, vec2(142.0, *level), vec2(64.0, 32.0), NO_SLIDE)
             .then_pausing(180)
             .then_moving(vec2(600.0, *level), 300)
             .then_pausing(180)
@@ -261,13 +275,13 @@ async fn main() {
         Platform::new(
             &mut world,
             vec2(600.0, down(level, 300.0)),
-            vec2(192.0, 28.0),
+            vec2(192.0, 32.0),
             0,
         ),
         Platform::new(
             &mut world,
             vec2(800.0, down(level, 200.0)),
-            vec2(96.0, 28.0),
+            vec2(96.0, 32.0),
             NO_SLIDE,
         )
         .then_pausing(180)
@@ -376,7 +390,7 @@ async fn main() {
         Platform::new(
             &mut world,
             vec2(200.0, *level - 200.0),
-            vec2(256.0, 30.0),
+            vec2(256.0, 32.0),
             NO_SLIDE,
         ),
         Platform::new(
@@ -388,7 +402,7 @@ async fn main() {
         Platform::new(
             &mut world,
             vec2(200.0, down(level, 16.0)),
-            vec2(32.0, 1700.0),
+            vec2(32.0, 1696.0),
             0,
         ),
         Platform::new(
@@ -400,7 +414,7 @@ async fn main() {
         Platform::new(
             &mut world,
             vec2(500.0, down(level, 16.0)),
-            vec2(32.0, 1700.0),
+            vec2(32.0, 1696.0),
             0,
         ),
         Platform::new(
@@ -472,14 +486,14 @@ async fn main() {
         Platform::new(
             &mut world,
             vec2(350.0, down(level, 200.0)),
-            vec2(32.0, 1000.0),
+            vec2(32.0, 1008.0),
             0,
         ),
         // DUMMY
         Platform::new(
             &mut world,
             vec2(256.0, down(level, 1000.0)),
-            vec2(300.0, 32.0),
+            vec2(304.0, 32.0),
             NO_SLIDE,
         ),
         // GROUND
@@ -489,7 +503,12 @@ async fn main() {
             vec2(2000.0, 32.0),
             GROUND_LEVEL | NO_SLIDE,
         ),
-        Platform::new(&mut world, vec2(-1000.0, 0.0), vec2(32.0, *level), NO_SLIDE),
+        Platform::new(
+            &mut world,
+            vec2(-1000.0, 0.0),
+            vec2(32.0, down(level, 15.0)),
+            NO_SLIDE,
+        ),
         Platform::new(&mut world, vec2(1000.0, 0.0), vec2(32.0, *level), NO_SLIDE),
     ];
     for platform in platforms.iter() {
@@ -518,12 +537,14 @@ async fn main() {
     let mut timer = 0;
     let mut coins = 0;
     let mut game_ended = false;
+    let mut gamepads = Gamepads::new();
     loop {
         clear_background(BLACK);
 
         world.step_particles();
         let mut pos = world.actor_pos(player);
         delta += get_frame_time();
+        gamepads.poll();
         while delta > 0.9 / 60.0 {
             delta -= 1.0 / 60.0;
             let (wall_candidate, coin_candidate) = world.move_h(player, dx);
@@ -606,6 +627,9 @@ async fn main() {
             if is_key_down(KeyCode::Right)
                 || is_key_down(KeyCode::D)
                 || mouse_position_local().x > 0.0 && is_mouse_button_down(MouseButton::Left)
+                || gamepads.all().any(|gamepad| {
+                    gamepad.left_stick_x() > 0.2 || gamepad.is_currently_pressed(Button::DPadRight)
+                })
             {
                 if wall.is_some() {
                     dx = 5.0;
@@ -616,6 +640,9 @@ async fn main() {
             } else if is_key_down(KeyCode::Left)
                 || is_key_down(KeyCode::A)
                 || mouse_position_local().x < 0.0 && is_mouse_button_down(MouseButton::Left)
+                || gamepads.all().any(|gamepad| {
+                    gamepad.left_stick_x() < -0.2 || gamepad.is_currently_pressed(Button::DPadLeft)
+                })
             {
                 if wall.is_some() {
                     dx = -5.0;
@@ -785,9 +812,26 @@ async fn main() {
             );
         }
 
+        // Drop death indicator
+        if gen_range(0.0, 1.0) > 0.7 {
+            let mut tmp_p_y = pos.y + 32.0;
+            let mut tmp_v_y = dy;
+            loop {
+                tmp_p_y += tmp_v_y;
+                tmp_v_y += GRAVITY.y;
+                if tmp_v_y > 8.0 {
+                    break;
+                }
+            }
+            world.add_particle(
+                vec2(gen_range(pos.x - 128.0, pos.x + 128.0), tmp_p_y),
+                vec2(gen_range(-1.0, 1.0), -1.0),
+            );
+        }
+
         draw_texture_ex(
             &onebit,
-            0.0,
+            -32.0,
             0.0,
             WHITE,
             DrawTextureParams {
@@ -798,65 +842,54 @@ async fn main() {
 
         // In-game tutorial, mostly sorted top to bottom
         draw_text(
-            "Level graphics: 1-Bit Platformer Pack by Kenney (kenney.nl)",
-            -100.0,
-            1000.0,
-            30.0,
-            WHITE,
-        );
-        draw_text(
-            "Character graphics: Chriss Ulysseo (modified by Bytekeeper)",
-            -100.0,
-            1500.0,
-            30.0,
-            WHITE,
-        );
-        draw_text(
             "How did I end up on this tower? I need to get down.",
-            -300.0,
-            150.0,
-            30.0,
-            WHITE,
-        );
-        draw_text(
-            "Surely, it's owner wouldn't mind me 'cleaning' up a bit.",
-            -320.0,
-            180.0,
-            30.0,
+            -470.0,
+            -120.0,
+            40.0,
             WHITE,
         );
 
-        draw_text("My trusty old soul-stone.", 0.0, -52.0, 24.0, WHITE);
+        draw_text("My trusty old soul-stone.", -80.0, -52.0, 24.0, WHITE);
         draw_text(
             "Should anything happen to me, I will be returned here.",
-            -50.0,
+            -150.0,
             -26.0,
+            24.0,
+            WHITE,
+        );
+
+        draw_text(
+            "I can roughly sense, how far I can jump down.",
+            -250.0,
+            330.0,
             24.0,
             WHITE,
         );
 
         draw_text("This, I can barely reach.", 250.0, 330.0, 24.0, WHITE);
 
+        draw_text("I can slide down here.", 150.0, 410.0, 24.0, WHITE);
+
         draw_text(
-            "This is too far of a drop for me.",
-            -350.0,
-            320.0,
+            "The platform is too far to jump down.",
+            150.0,
+            430.0,
+            24.0,
+            WHITE,
+        );
+
+        draw_text(
+            "When sliding, I can jump from the wall.",
+            -64.0,
+            900.0,
             24.0,
             WHITE,
         );
 
         draw_text(
             "Some walls, I cannot slide down.",
-            550.0,
-            380.0,
-            24.0,
-            WHITE,
-        );
-        draw_text("I can slide down here.", 0.0, 380.0, 24.0, WHITE);
-        draw_text(
-            "When sliding, I can jump from the wall.",
-            140.0,
-            600.0,
+            200.0,
+            1150.0,
             24.0,
             WHITE,
         );
